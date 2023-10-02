@@ -1,6 +1,15 @@
 from csv import DictReader
 import psycopg2
+from pathlib import Path
 
+ROOT_PATH = Path(__file__).resolve().parent
+
+CSV_FILE_EMPLOYEES = Path.joinpath(ROOT_PATH, 'north_data', 'employees_data.csv')
+CSV_FILE_CUSTOMERS = Path.joinpath(ROOT_PATH, 'north_data', 'customers_data.csv')
+CSV_FILE_ORDERS = Path.joinpath(ROOT_PATH, 'north_data', 'orders_data.csv')
+
+pg_tables = ['employees', 'customers', 'orders']
+csv_list = [CSV_FILE_EMPLOYEES, CSV_FILE_CUSTOMERS, CSV_FILE_ORDERS]
 
 conn = psycopg2.connect(
     host='localhost',
@@ -8,22 +17,21 @@ conn = psycopg2.connect(
     user='postgres',
     password='t95qsnapQ')
 
-file_csv = "C:\\Users\\Dima\\postgres-homeworks\\homework-1\\north_data\\employees_data.csv"
+try:
+    with conn:
+        for index, csv_data in enumerate(csv_list):
+            try:
+                with open(csv_data) as csv_file:
+                    reader = DictReader(csv_file)
+                    row: dict
+                    with conn.cursor() as cur:
+                        for row in reader:
+                            values_tup = tuple(row.values())
+                            values_str = '%s ' * len(values_tup)
+                            cur.execute(f'INSERT INTO {pg_tables[index]} VALUES ({", ".join(values_str.split())})',
+                                        values_tup)
+            except FileNotFoundError:
+                raise FileNotFoundError(f'отсутствует файл {csv_data}')
 
-with open(file_csv, 'r', encoding='utf-8-sig') as file:
-    reader = DictReader(file)
-    for line in reader:
-        employees = (line['employee_id'], line['first_name'], line['last_name'], line['title'], line['birth_date'], line['notes'])
-
-        conn = psycopg2.connect(
-            host='localhost',
-            database='north',
-            user='postgres',
-            password='t95qsnapQ')
-        try:
-            with conn:
-                with conn.cursor() as cur:
-                    cur.execute('INSERT INTO employees VALUES (%s, %s, %s, %s, %s, %s)', employees)
-        finally:
-            conn.close()
- 
+finally:
+    conn.close()
